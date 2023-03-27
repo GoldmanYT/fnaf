@@ -10,22 +10,20 @@ from animatronics import Bonnie, Chica, Freddy, Foxy, Office
 pg.mixer.pre_init()
 pg.init()
 
+perspective_surface = pg.Surface((W, H))
+hs = [(0, 0)] * W
+for x in range(W):
+    k = 0.5 * (1 - sin(x * pi / (W - 1))) + 1
+    h = H / k
+    hs[x] = (H - h) / 2, h
 
-def redraw_as_perspective(surface: pg.Surface, width=None, height=None):
-    k = 0.5
-    if width is None or height is None:
-        w, h = surface.get_size()
-    else:
-        w, h = width, height
 
-    new_surface = pg.Surface((w, h))
+def redraw_as_perspective(surface, screen):
     for x in range(W):
-        stripe = surface.subsurface(x, 0, 1, h)
-        new_h = H * (k * (1 - sin(x * pi / (w - 1))) + 1)
-        stripe = pg.transform.scale(stripe, (1, new_h))
-        new_surface.blit(stripe, (x, (H - new_h) // 2))
-
-    surface.blit(new_surface, (0, 0))
+        y0, h = hs[x]
+        stripe = surface.subsurface(x, y0, 1, h)
+        stripe_dst = screen.subsurface(x, 0, 1, H)
+        pg.transform.scale(stripe, (1, H), stripe_dst)
 
 
 class Sprite:
@@ -76,21 +74,20 @@ class Sprite:
 class Game:
     def __init__(self):
         self.w, self.h = W, H
-        self.frame = FRAME_17
+        self.frame = WAIT
         self.tick = 1  # заменить на 0
         self.start_frame = True
         self.selected_item = 1
         self.previous_item = 1
 
         self.beat_game = 3
-        self.last_night = 5
+        self.last_night = 1
         self.night = self.last_night
-        self.night = 4
         self.office = Office()
 
         self.load_sounds()
 
-        self.screen = pg.display.set_mode((W, H), pg.FULLSCREEN)
+        self.screen = pg.display.set_mode((W, H))
         self.clock = pg.time.Clock()
 
         self.load_data()
@@ -118,6 +115,7 @@ class Game:
             self.draw()
             self.update(pressed_keys, mouse_pressed)
             self.clock.tick(FPS)
+            # pg.display.set_caption(f'fps: {self.clock.get_fps():.0f}')
         pg.quit()
 
     def load_sounds(self):
@@ -215,7 +213,8 @@ class Game:
                         else:
                             self.visible = False
 
-            self.title_white_stripes = TitleWhiteStripes('data/textures/title_white_stripes.png', WHITE_STRIPES_POS, 1280)
+            self.title_white_stripes = TitleWhiteStripes('data/textures/title_white_stripes.png', WHITE_STRIPES_POS,
+                                                         1280)
 
             class TitleFreddy(Sprite):
                 def __init__(self, *args, **kwargs):
@@ -287,10 +286,9 @@ class Game:
             self.scott = Sprite('data/textures/scott.png', SCOTT_POS)
 
         elif self.frame == WAIT:
-            # wait
             self.loading = Sprite('data/textures/loading.png', LOADING_POS)
 
-            # frame 1
+        elif self.frame == FRAME_1:
             class OfficeSprite(Sprite):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
@@ -299,9 +297,7 @@ class Game:
 
                 def draw(self, surface):
                     if self.visible:
-                        display_image = self.image.subsurface(self.frame * self.w + self.offset, 0, W, H)
-                        display_image.set_alpha(self.alpha, pg.SRCALPHA)
-                        surface.blit(display_image, self.pos)
+                        surface.blit(self.image, self.pos, (self.frame * self.w + self.offset, 0, W, H))
 
                 def update(self, mouse_pos=(0, 0)):
                     super().update()
@@ -330,6 +326,161 @@ class Game:
 
             self.office_sprite = OfficeSprite('data/textures/office.png', OFFICE_SPRITE_POS, 1600)
             self.fan = OfficeObject('data/textures/fan.png', FAN_POS, 138, speed=99)
+            self.power_left = Sprite('data/textures/power_left.png', POWER_LEFT_POS)
+
+            class Counter(Sprite):
+                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, speed=0,
+                             init_value=0):
+                    super().__init__(image_path, pos, width, height, visible, speed)
+                    self.value = init_value
+
+                def draw(self, surface):
+                    if self.visible:
+                        x, y = self.pos
+                        for i, digit in enumerate(str(self.value)):
+                            digit = int(digit)
+                            display_image = self.image.subsurface(self.w * digit, 0, self.w, self.h)
+                            surface.blit(display_image, (x + i * self.w, y))
+
+            self.power_counter = Counter('data/textures/power_counter.png', POWER_COUNTER_POS, 18, init_value=100)
+            self.percent = Sprite('data/textures/percent.png', PERCENT_POS)
+            self.usage = Sprite('data/textures/usage.png', USAGE_POS)
+
+            class UsageSprite(Sprite):
+                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, speed=0):
+                    super().__init__(image_path, pos, width, height, visible, speed)
+
+            self.usage_sprite = UsageSprite('data/textures/usage_sprite.png', USAGE_SPRITE_POS)
+
+            class CameraButton(Sprite):
+                def __init__(self, image_path=None, text_image_path=None, pos=(0, 0), width=None, height=None,
+                             visible=True, speed=3, id=0):
+                    super().__init__(image_path, pos, width, height, visible, speed)
+                    self.text = pg.image.load(text_image_path).convert_alpha()
+                    self.frame = 1
+                    self.id = id
+
+                def draw(self, surface):
+                    x, y = self.pos
+                    surface.blit(self.image, self.pos, (self.w * self.frame, 0, self.w, self.h))
+                    surface.blit(self.text, (x + 8, y + 8))
+
+                def update(self, mouse_pos=(0, 0), id=0):
+                    if self.id == id:
+                        super().update()
+                    else:
+                        self.frame = 1
+                        self.tick = 0
+                    x, y = mouse_pos
+                    x1, y1 = self.pos
+                    x2, y2 = x1 + self.w, y1 + self.h
+
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        return True
+                    return False
+
+            self.cam_btn_1a = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_1a.png', CAM_1A_POS, 60,
+                                           id=CAM_1A)
+            self.cam_btn_1b = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_1b.png', CAM_1B_POS, 60,
+                                           id=CAM_1B)
+            self.cam_btn_1c = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_1c.png', CAM_1C_POS, 60,
+                                           id=CAM_1C)
+            self.cam_btn_2a = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_2a.png', CAM_2A_POS, 60,
+                                           id=CAM_2A)
+            self.cam_btn_2b = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_2b.png', CAM_2B_POS, 60,
+                                           id=CAM_2B)
+            self.cam_btn_3 = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_3.png', CAM_3_POS, 60,
+                                           id=CAM_3)
+            self.cam_btn_4a = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_4a.png', CAM_4A_POS, 60,
+                                           id=CAM_4A)
+            self.cam_btn_4b = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_4b.png', CAM_4B_POS, 60,
+                                           id=CAM_4B)
+            self.cam_btn_5 = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_5.png', CAM_5_POS, 60,
+                                           id=CAM_5)
+            self.cam_btn_6 = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_6.png', CAM_6_POS, 60,
+                                           id=CAM_6)
+            self.cam_btn_7 = CameraButton('data/textures/cam_btn.png', 'data/textures/cam_7.png', CAM_7_POS, 60,
+                                           id=CAM_7)
+
+            class Button(Sprite):
+                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, speed=0,
+                             rect=None):
+                    if rect is not None:
+                        pos = rect[:2]
+                        width = rect[2]
+                        height = rect[3]
+                    super().__init__(image_path, pos, width, height, visible, speed)
+
+                def update(self, mouse_pos=(0, 0)):
+                    super().update()
+                    x, y = mouse_pos
+                    x1, y1 = self.pos
+                    x2, y2 = x1 + self.w, y1 + self.h
+
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        return True
+                    return False
+
+            class FlipButton(Sprite):
+                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, speed=0,
+                             rect=None):
+                    if rect is not None:
+                        pos = rect[:2]
+                        width = rect[2]
+                        height = rect[3]
+                    super().__init__(image_path, pos, width, height, visible, speed)
+                    self.touch_able = True
+
+                def update(self, mouse_pos=(0, 0)):
+                    super().update()
+                    x, y = mouse_pos
+                    x1, y1 = self.pos
+                    x2, y2 = x1 + self.w, y1 + self.h
+
+                    if x1 <= x <= x2 and y1 <= y <= y2 and self.touch_able:
+                        self.touch_able = False
+                        return True
+                    return False
+
+            self.flip_panel = Sprite('data/textures/flip_panel.png', FLIP_PANEL_POS)
+            self.open_cameras = FlipButton(visible=False, rect=FLIP_UP_RECT)
+            self.show_open = Button(visible=False, rect=FLIP_DOWN_RECT)
+
+            class Cameras(Sprite):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.frame = 4
+                    self.offset = 0
+                    self.a = 0
+                    self.b = 0
+
+                def draw(self, surface):
+                    if self.visible:
+                        surface.blit(self.image, self.pos, (self.frame * self.w + self.offset, 0, W, H))
+
+                def update(self):
+                    self.b += 1
+                    if self.a == 0:
+                        self.offset += 1
+                        if self.b >= 320:
+                            self.a = 1
+                            self.b = 0
+                    elif self.a == 1:
+                        if self.b >= 100:
+                            self.a = 2
+                            self.b = 0
+                    elif self.a == 2:
+                        self.offset -= 1
+                        if self.b >= 320:
+                            self.a = 3
+                            self.b = 0
+                    elif self.a == 3:
+                        if self.b >= 100:
+                            self.a = 0
+                            self.b = 0
+
+            self.cameras = Cameras('data/textures/cameras.png', CAMERAS_POS, 1600)
+            self.camera_map = Sprite('data/textures/camera_map.png', CAMERA_MAP_POS, 400)
 
         elif self.frame == WHAT_DAY:
             class WhiteStripes(Sprite):
@@ -342,7 +493,7 @@ class Game:
             self.white_stripes = WhiteStripes('data/textures/white_stripes.png', WHITE_STRIPES_POS, 1280)
 
         elif self.frame == DIED:
-            self.died_noise = Sprite('data/textures/noise.png', DIED_NOISE_POS, 1280)
+            self.died_noise = Sprite('data/textures/noise.png', DIED_NOISE_POS, 1280, speed=99)
 
         elif self.frame == FREDDY:
             class FreddyJumpscarePowerDown(Sprite):
@@ -356,7 +507,7 @@ class Game:
 
             self.freddy_jumpscare_power_down = FreddyJumpscarePowerDown('data/textures/freddy_jumpscare_power_down.png',
                                                                         FREDDY_JUMPSCARE_POWER_DOWN_POS, 1280)
-            self.freddy_noise = Sprite('data/textures/noise.png', FREDDY_NOISE_POS, 1280)
+            self.freddy_noise = Sprite('data/textures/noise.png', FREDDY_NOISE_POS, 1280, speed=99)
 
         elif self.frame == NEXT_DAY:
             class FinalHourNumber(Sprite):
@@ -409,13 +560,10 @@ class Game:
             self.customize_backdrop6 = Sprite('data/textures/customize_backdrop_6.png', CUSTOMIZE_BACKDROP6_POS)
 
             class AICounter(Sprite):
-                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, init_value=0):
-                    super().__init__(image_path, pos, width, height, visible)
-                    self.speed = 0
+                def __init__(self, image_path=None, pos=(0, 0), width=None, height=None, visible=True, speed=0,
+                             init_value=0):
+                    super().__init__(image_path, pos, width, height, visible, speed)
                     self.value = init_value
-
-                def update(self):
-                    self.frame = self.value
 
                 def draw(self, surface):
                     if self.visible:
@@ -465,8 +613,6 @@ class Game:
             self.creepy_end = Sprite('data/textures/creepy_end_backdrop.png', CREEPY_END_POS)
 
     def draw(self):
-        self.screen.fill(BLACK)
-
         if self.frame == FRAME_17:
             self.warning.draw(self.screen)
 
@@ -490,15 +636,39 @@ class Game:
             self.title_white_stripes.draw(self.screen)
 
         elif self.frame == FRAME_1:
-            perspective_surface = pg.Surface((W, H))
-            self.office_sprite.draw(perspective_surface)
-            offset = self.office_sprite.offset
-            self.fan.draw(perspective_surface, offset)
+            if self.office.opened_camera is None:
+                self.office_sprite.draw(perspective_surface)
+                offset = self.office_sprite.offset
+                self.fan.draw(perspective_surface, offset)
+            else:
+                self.cameras.draw(perspective_surface)
 
-            redraw_as_perspective(perspective_surface)
-            self.screen.blit(perspective_surface, (0, 0))
+            redraw_as_perspective(perspective_surface, self.screen)
+
+            if self.office.opened_camera is None:
+                pass
+            else:
+                self.camera_map.draw(self.screen)
+                self.cam_btn_1a.draw(self.screen)
+                self.cam_btn_1b.draw(self.screen)
+                self.cam_btn_1c.draw(self.screen)
+                self.cam_btn_2a.draw(self.screen)
+                self.cam_btn_2b.draw(self.screen)
+                self.cam_btn_3.draw(self.screen)
+                self.cam_btn_4a.draw(self.screen)
+                self.cam_btn_4b.draw(self.screen)
+                self.cam_btn_5.draw(self.screen)
+                self.cam_btn_6.draw(self.screen)
+                self.cam_btn_7.draw(self.screen)
+
+            self.power_left.draw(self.screen)
+            self.power_counter.draw(self.screen)
+            self.percent.draw(self.screen)
+            self.usage.draw(self.screen)
+            self.flip_panel.draw(self.screen)
 
         elif self.frame == WHAT_DAY:
+            self.screen.fill(BLACK)
             self.what_day.draw(self.screen)
             self.white_stripes.draw(self.screen)
 
@@ -511,6 +681,7 @@ class Game:
                 self.freddy_noise.draw(self.screen)
 
         elif self.frame == NEXT_DAY:
+            self.screen.fill(BLACK)
             self.am.draw(self.screen)
             self.five.draw(self.screen)
             self.six.draw(self.screen)
@@ -534,6 +705,7 @@ class Game:
             self.the_end_2.draw(self.screen)
 
         elif self.frame == CUSTOMIZE:
+            self.screen.fill(BLACK)
             self.customize_night.draw(self.screen)
             self.customize_freddy.draw(self.screen)
             self.customize_bonnie.draw(self.screen)
@@ -694,8 +866,53 @@ class Game:
                 self.change_frame(WAIT)
 
         elif self.frame == FRAME_1:
-            self.office_sprite.update(mouse_pos)
-            self.fan.update()
+            if self.office.opened_camera is None:
+                self.office_sprite.update(mouse_pos)
+                self.fan.update()
+                if self.open_cameras.update(mouse_pos):
+                    self.office.open_cameras()
+                    self.flip_panel.visible = False
+            else:
+                if self.open_cameras.update(mouse_pos):
+                    self.office.close_cameras()
+                    self.flip_panel.visible = False
+                if self.cam_btn_1a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 4
+                    self.office.change_camera(CAM_1A)
+                elif self.cam_btn_1b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 1
+                    self.office.change_camera(CAM_1B)
+                elif self.cam_btn_1c.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 11
+                    self.office.change_camera(CAM_1C)
+                elif self.cam_btn_2a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 3
+                    self.office.change_camera(CAM_2A)
+                elif self.cam_btn_2b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 5
+                    self.office.change_camera(CAM_2B)
+                elif self.cam_btn_3.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 9
+                    self.office.change_camera(CAM_3)
+                elif self.cam_btn_4a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 10
+                    self.office.change_camera(CAM_4A)
+                elif self.cam_btn_4b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 8
+                    self.office.change_camera(CAM_4B)
+                elif self.cam_btn_5.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 7
+                    self.office.change_camera(CAM_5)
+                elif self.cam_btn_6.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 4
+                    self.office.change_camera(CAM_6)
+                elif self.cam_btn_7.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
+                    self.cameras.frame = 6
+                    self.office.change_camera(CAM_7)
+            if self.show_open.update(mouse_pos):
+                self.open_cameras.touch_able = True
+                self.flip_panel.visible = True
+            self.cameras.update()
 
         elif self.frame == DIED:
             if self.start_frame:
@@ -775,10 +992,6 @@ class Game:
                 self.change_frame(TITLE)
 
         elif self.frame == CUSTOMIZE:
-            self.ai_counter1.update()
-            self.ai_counter2.update()
-            self.ai_counter3.update()
-            self.ai_counter4.update()
             if self.decrease_btn1.update(mouse_pos) and mouse_pressed:
                 self.ai_counter1.add_value(-1)
             if self.decrease_btn2.update(mouse_pos) and mouse_pressed:

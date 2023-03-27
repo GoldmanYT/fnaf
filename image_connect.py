@@ -1,7 +1,7 @@
 from PIL import Image
 
-n = 8
-name = 'data/textures/office_'
+n = 52
+name = 'data/textures/cameras_'
 file_list = [f'{name}{i}.png' for i in range(1, n + 1)]
 im_list = [Image.open(file) for file in file_list]
 width = max(im_list, key=lambda im: im.width).width

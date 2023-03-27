@@ -7,11 +7,13 @@ class Animatronic:
     def __init__(self, ai_level, office):
         self.ai_level = ai_level
         self.ways = {}
+        self.increase_hours = []
         self.pos = CAM_1A
         self.tick = 0
         self.frequency = 1
         self.office = office
         self.attacking = False
+        self.previous_hour = 0
 
     def attack(self):
         self.attacking = True
@@ -23,6 +25,10 @@ class Animatronic:
             self.move()
         if self.pos == OFFICE:
             self.attack()
+        if self.previous_hour != self.office.hour:
+            self.previous_hour = self.office.hour
+            if self.office.hour in self.increase_hours:
+                self.ai_level += 1
 
     def move(self):
         x = randint(1, 20)
@@ -56,6 +62,7 @@ class Bonnie(Animatronic):
             CAM_5: [CAM_2A],
             LEFT_DOOR: [CAM_1B, OFFICE]
         }
+        self.increase_hours = [2, 3, 4]
 
 
 class Chica(Animatronic):
@@ -71,6 +78,7 @@ class Chica(Animatronic):
             CAM_4B: [RIGHT_DOOR],
             RIGHT_DOOR: [CAM_1B, OFFICE]
         }
+        self.increase_hours = [3, 4]
 
 
 class Freddy(Animatronic):
@@ -116,13 +124,14 @@ class Foxy(Animatronic):
         self.blocked = False
         self.unblocking_in = 0
         self.attacking_in = seconds_to_frames(25)
+        self.increase_hours = [3, 4]
 
     def update(self):
         self.tick += 1
         if self.stage == 3:
             self.attacking_in -= 1
             if self.office.opened_camera == CAM_2A:
-                self.attacking_in = 0  # ???
+                self.attacking_in = 0
             if self.attacking_in <= 0:
                 self.pos = LEFT_DOOR
         if self.blocked:
@@ -152,6 +161,7 @@ class Office:
         self.right_door = False
         self.opened_camera = None
         self.last_camera = CAM_1A
+        self.hour = 0
 
     def toggle_left_door(self):
         self.left_door = not self.left_door
