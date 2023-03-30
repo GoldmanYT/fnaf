@@ -82,7 +82,7 @@ class Game:
 
         self.beat_game = 3
         self.last_night = 1
-        self.night = self.last_night
+        self.night = 6
         self.office = Office()
 
         self.load_sounds()
@@ -289,6 +289,46 @@ class Game:
             self.loading = Sprite('data/textures/loading.png', LOADING_POS)
 
         elif self.frame == FRAME_1:
+            if self.night == 1:
+                freddy_ai = 0
+                bonnie_ai = 0
+                chica_ai = 0
+                foxy_ai = 0
+            elif self.night == 2:
+                freddy_ai = 0
+                bonnie_ai = 3
+                chica_ai = 1
+                foxy_ai = 1
+            elif self.night == 3:
+                freddy_ai = 1
+                bonnie_ai = 0
+                chica_ai = 5
+                foxy_ai = 2
+            elif self.night == 4:
+                freddy_ai = randint(1, 2)
+                bonnie_ai = 2
+                chica_ai = 4
+                foxy_ai = 6
+            elif self.night == 5:
+                freddy_ai = 3
+                bonnie_ai = 5
+                chica_ai = 7
+                foxy_ai = 5
+            elif self.night == 6:
+                freddy_ai = 4
+                bonnie_ai = 10
+                chica_ai = 12
+                foxy_ai = 16
+            else:
+                freddy_ai = self.ai_counter1.value
+                bonnie_ai = self.ai_counter2.value
+                chica_ai = self.ai_counter3.value
+                foxy_ai = self.ai_counter4.value
+            self.bonnie = Bonnie(bonnie_ai, self.office)
+            self.chica = Chica(chica_ai, self.office)
+            self.foxy = Foxy(foxy_ai, self.office)
+            self.freddy = Freddy(freddy_ai, self.office)
+
             class OfficeSprite(Sprite):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
@@ -453,6 +493,7 @@ class Game:
                     self.offset = 0
                     self.a = 0
                     self.b = 0
+                    self.c = 0
 
                 def draw(self, surface):
                     if self.visible:
@@ -460,6 +501,7 @@ class Game:
 
                 def update(self):
                     self.b += 1
+                    self.c = randint(0, 10) + 1
                     if self.a == 0:
                         self.offset += 1
                         if self.b >= 320:
@@ -877,42 +919,114 @@ class Game:
                     self.office.close_cameras()
                     self.flip_panel.visible = False
                 if self.cam_btn_1a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 4
                     self.office.change_camera(CAM_1A)
                 elif self.cam_btn_1b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 1
                     self.office.change_camera(CAM_1B)
                 elif self.cam_btn_1c.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 11
                     self.office.change_camera(CAM_1C)
                 elif self.cam_btn_2a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 3
                     self.office.change_camera(CAM_2A)
                 elif self.cam_btn_2b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 5
                     self.office.change_camera(CAM_2B)
                 elif self.cam_btn_3.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 9
                     self.office.change_camera(CAM_3)
                 elif self.cam_btn_4a.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 10
                     self.office.change_camera(CAM_4A)
                 elif self.cam_btn_4b.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 8
                     self.office.change_camera(CAM_4B)
                 elif self.cam_btn_5.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 7
                     self.office.change_camera(CAM_5)
                 elif self.cam_btn_6.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 4
+                    self.cameras.visible = False
                     self.office.change_camera(CAM_6)
                 elif self.cam_btn_7.update(mouse_pos, self.office.opened_camera) and mouse_pressed:
-                    self.cameras.frame = 6
                     self.office.change_camera(CAM_7)
+
+                if self.office.opened_camera != CAM_6:
+                    self.cameras.visible = True
+
+                if self.office.opened_camera == CAM_1A:
+                    if self.bonnie.pos == CAM_1A and self.chica.pos == CAM_1A and self.freddy.pos == CAM_1A:
+                        self.cameras.frame = 4
+                    elif self.bonnie.pos != CAM_1A and self.chica.pos == CAM_1A and self.freddy.pos == CAM_1A:
+                        self.cameras.frame = 12
+                    elif self.bonnie.pos == CAM_1A and self.chica.pos != CAM_1A and self.freddy.pos == CAM_1A:
+                        self.cameras.frame = 24
+                    elif self.bonnie.pos != CAM_1A and self.chica.pos != CAM_1A and self.freddy.pos == CAM_1A:
+                        self.cameras.frame = 25
+                    else:
+                        self.cameras.frame = 37
+                elif self.office.opened_camera == CAM_1B:
+                    if self.chica.pos == CAM_1B:
+                        self.cameras.frame = 23  # 32
+                    elif self.bonnie.pos == CAM_1B:
+                        self.cameras.frame = 13  # 14
+                    elif self.freddy.pos == CAM_1B:
+                        self.cameras.frame = 38
+                    else:
+                        self.cameras.frame = 1
+                elif self.office.opened_camera == CAM_1C:
+                    if self.foxy.stage == 0:
+                        self.cameras.frame = 11
+                    elif self.foxy.stage == 1:
+                        self.cameras.frame = 27
+                    elif self.foxy.stage == 2:
+                        self.cameras.frame = 28
+                    elif self.foxy.stage == 3:
+                        self.cameras.frame = 29
+                elif self.office.opened_camera == CAM_2A:
+                    if self.cameras.c <= 3:
+                        self.cameras.frame = 2
+                    elif self.bonnie.pos == CAM_2A:
+                        self.cameras.frame = 18
+                    else:
+                        self.cameras.frame = 3
+                elif self.office.opened_camera == CAM_2B:
+                    if self.bonnie.pos == CAM_2B:
+                        self.cameras.frame = 15  # 35, 36
+                    else:
+                        self.cameras.frame = 5
+                elif self.office.opened_camera == CAM_3:
+                    if self.bonnie.pos == CAM_3:
+                        self.cameras.frame = 16
+                    else:
+                        self.cameras.frame = 9
+                elif self.office.opened_camera == CAM_4A:
+                    if self.chica.pos == CAM_4A:
+                        self.cameras.frame = 22  # 26
+                    elif self.freddy.pos == CAM_4A:
+                        self.cameras.frame = 40
+                    else:
+                        self.cameras.frame = 10
+                elif self.office.opened_camera == CAM_4B:
+                    if self.chica.pos == CAM_4B:
+                        self.cameras.frame = 21  # 33, 34
+                    elif self.freddy.pos == CAM_4B:
+                        self.cameras.frame = 41
+                    else:
+                        self.cameras.frame = 8
+                elif self.office.opened_camera == CAM_5:
+                    if self.bonnie.pos == CAM_3:
+                        self.cameras.frame = 17  # 42
+                    else:
+                        self.cameras.frame = 7
+                elif self.office.opened_camera == CAM_6:
+                    pass
+                elif self.office.opened_camera == CAM_7:
+                    if self.chica.pos == CAM_7:
+                        self.cameras.frame = 19  # 20
+                    elif self.freddy.pos == CAM_7:
+                        self.cameras.frame = 39
+                    else:
+                        self.cameras.frame = 6
             if self.show_open.update(mouse_pos):
                 self.open_cameras.touch_able = True
                 self.flip_panel.visible = True
             self.cameras.update()
+            self.bonnie.update()
+            self.chica.update()
+            self.foxy.update()
+            self.freddy.update()
 
         elif self.frame == DIED:
             if self.start_frame:
