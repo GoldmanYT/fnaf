@@ -74,7 +74,7 @@ class Sprite:
 class Game:
     def __init__(self):
         self.w, self.h = W, H
-        self.frame = WAIT
+        self.frame = FRAME_17
         self.tick = 1  # заменить на 0
         self.start_frame = True
         self.selected_item = 1
@@ -1027,6 +1027,7 @@ class Game:
             self.chica.update()
             self.foxy.update()
             self.freddy.update()
+            pg.display.set_caption(f'{self.foxy.stage}')
 
         elif self.frame == DIED:
             if self.start_frame:

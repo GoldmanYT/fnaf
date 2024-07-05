@@ -32,7 +32,7 @@ class Animatronic:
 
     def move(self):
         x = randint(1, 20)
-        if self.ai_level >= x:
+        if self.ai_level >= x and not self.attacking:
             ways = self.ways.get(self.pos).copy()
             if OFFICE in ways:
                 if self.pos == LEFT_DOOR and self.office.left_door or \
@@ -121,7 +121,6 @@ class Foxy(Animatronic):
         super().__init__(ai_level, office)
         self.frequency = 5.01
         self.stage = 0
-        self.blocked = False
         self.unblocking_in = 0
         self.attacking_in = seconds_to_frames(25)
         self.increase_hours = [3, 4]
@@ -134,13 +133,12 @@ class Foxy(Animatronic):
                 self.attacking_in = 0
             if self.attacking_in <= 0:
                 self.pos = LEFT_DOOR
-        if self.blocked:
+        if self.unblocking_in > 0:
             self.unblocking_in -= 1
             self.tick = 0
         else:
             super().update()
         if self.office.opened_camera is not None:
-            self.blocked = True
             self.unblocking_in = seconds_to_frames(random() * (16.67 - 0.83) + 0.83)
         if self.pos == LEFT_DOOR:
             if self.office.left_door:
@@ -151,7 +149,7 @@ class Foxy(Animatronic):
 
     def move(self):
         x = randint(1, 20)
-        if self.ai_level >= x and not self.blocked:
+        if self.ai_level >= x and self.unblocking_in <= 0 and self.stage < 3:
             self.stage += 1
 
 
